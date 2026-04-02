@@ -38,6 +38,7 @@
         <div class="controls-card">
           <h2>שליטה</h2>
           <p>השתמשו בחצים או ב-`WASD` כדי לזוז.</p>
+          <p>במובייל אפשר גם להחליק על הלוח או להשתמש בכפתורי המגע.</p>
           <p>`רווח` עוצר וממשיך, `Enter` מתחיל מחדש.</p>
         </div>
 
@@ -83,6 +84,28 @@
           <div class="progress-bar">
             <div id="progress-fill"></div>
           </div>
+        </div>
+
+        <div class="touch-controls" aria-label="כפתורי שליטה למובייל">
+          <button type="button" class="touch-button touch-up" data-direction="up">
+            ▲
+          </button>
+          <button type="button" class="touch-button touch-left" data-direction="left">
+            ◀
+          </button>
+          <button
+            type="button"
+            class="touch-button touch-action"
+            id="touch-pause-button"
+          >
+            עצור
+          </button>
+          <button type="button" class="touch-button touch-right" data-direction="right">
+            ▶
+          </button>
+          <button type="button" class="touch-button touch-down" data-direction="down">
+            ▼
+          </button>
         </div>
       </section>
     </main>

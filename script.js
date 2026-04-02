@@ -16,6 +16,8 @@ const overlayTitle = document.getElementById("overlay-title");
 const overlayText = document.getElementById("overlay-text");
 const startButton = document.getElementById("start-button");
 const restartButton = document.getElementById("restart-button");
+const touchPauseButton = document.getElementById("touch-pause-button");
+const touchDirectionButtons = document.querySelectorAll("[data-direction]");
 
 const gridSize = 20;
 const tileCount = canvas.width / gridSize;
@@ -86,6 +88,7 @@ const state = {
   running: false,
   paused: false,
   loopId: null,
+  touchStart: null,
 };
 
 function createStartingSnake() {
@@ -240,6 +243,7 @@ function scheduleTick() {
 function startGame() {
   state.running = true;
   setOverlay("", "", "", false);
+  syncPauseButton();
   scheduleTick();
 }
 
@@ -256,6 +260,7 @@ function resetGame() {
     "לחצו על התחל משחק",
     "סיימו כל שלב על ידי איסוף כמות האוכל הדרושה בלי להתנגש."
   );
+  syncPauseButton();
 }
 
 function pauseGame() {
@@ -274,6 +279,8 @@ function pauseGame() {
     setOverlay("", "", "", false);
     scheduleTick();
   }
+
+  syncPauseButton();
 }
 
 function advanceLevel() {
@@ -285,6 +292,7 @@ function advanceLevel() {
       `סיימתם עם ${state.score} נקודות ואורך ${state.snake.length}. לחצו על אתחל כדי לשחק שוב.`,
       true
     );
+    syncPauseButton();
     return;
   }
 
@@ -301,6 +309,7 @@ function advanceLevel() {
     `${levels[state.levelIndex].description} לחצו על התחל כדי להמשיך לשלב הבא.`,
     true
   );
+  syncPauseButton();
 }
 
 function endGame(reason) {
@@ -318,6 +327,20 @@ function endGame(reason) {
         : "פגעתם בעצמכם. לפעמים הפנייה הכי מסוכנת היא דווקא המוכרת.";
 
   setOverlay("הפסד", "הנחש התרסק", `${message} לחצו על אתחל כדי לנסות שוב.`, true);
+  syncPauseButton();
+}
+
+function syncPauseButton() {
+  if (!touchPauseButton) {
+    return;
+  }
+
+  if (!state.running) {
+    touchPauseButton.textContent = "התחל";
+    return;
+  }
+
+  touchPauseButton.textContent = state.paused ? "המשך" : "עצור";
 }
 
 function tick() {
@@ -405,6 +428,46 @@ function handleDirectionChange(key) {
   }
 }
 
+function setDirectionFromTouch(direction) {
+  const map = {
+    up: "ArrowUp",
+    down: "ArrowDown",
+    left: "ArrowLeft",
+    right: "ArrowRight",
+  };
+
+  handleDirectionChange(map[direction]);
+}
+
+function handleTouchStart(event) {
+  const touch = event.changedTouches[0];
+  state.touchStart = { x: touch.clientX, y: touch.clientY };
+}
+
+function handleTouchEnd(event) {
+  if (!state.touchStart) {
+    return;
+  }
+
+  const touch = event.changedTouches[0];
+  const deltaX = touch.clientX - state.touchStart.x;
+  const deltaY = touch.clientY - state.touchStart.y;
+  const threshold = 24;
+
+  if (Math.abs(deltaX) < threshold && Math.abs(deltaY) < threshold) {
+    state.touchStart = null;
+    return;
+  }
+
+  if (Math.abs(deltaX) > Math.abs(deltaY)) {
+    setDirectionFromTouch(deltaX > 0 ? "right" : "left");
+  } else {
+    setDirectionFromTouch(deltaY > 0 ? "down" : "up");
+  }
+
+  state.touchStart = null;
+}
+
 document.addEventListener("keydown", (event) => {
   if (event.key === " ") {
     event.preventDefault();
@@ -430,5 +493,25 @@ startButton.addEventListener("click", () => {
 restartButton.addEventListener("click", () => {
   resetGame();
 });
+
+touchDirectionButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setDirectionFromTouch(button.dataset.direction);
+  });
+});
+
+if (touchPauseButton) {
+  touchPauseButton.addEventListener("click", () => {
+    if (!state.running) {
+      startGame();
+      return;
+    }
+
+    pauseGame();
+  });
+}
+
+canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
+canvas.addEventListener("touchend", handleTouchEnd, { passive: true });
 
 resetGame();
