@@ -48,6 +48,26 @@
             מתרגלים שליטה בסיסית. אין מכשולים, רק להגיע ליעד.
           </p>
         </div>
+
+        <div class="leaderboard-card">
+          <div class="leaderboard-head">
+            <h2>טבלת דירוגים</h2>
+            <span id="leaderboard-status">סיימו משחק כדי לשמור תוצאה</span>
+          </div>
+          <div class="leaderboard-form">
+            <input
+              id="player-name"
+              type="text"
+              maxlength="18"
+              placeholder="השם שלך"
+              autocomplete="nickname"
+            />
+            <button id="save-score-button" type="button" class="secondary">
+              שמור תוצאה
+            </button>
+          </div>
+          <ol class="leaderboard-list" id="leaderboard-list"></ol>
+        </div>
       </section>
 
       <section class="game-panel">
@@ -91,8 +111,8 @@
           <button type="button" class="touch-button touch-up" data-direction="up">
             ▲
           </button>
-          <button type="button" class="touch-button touch-left" data-direction="left">
-            ◀
+          <button type="button" class="touch-button touch-left" data-direction="right">
+            ▶
           </button>
           <button
             type="button"
@@ -101,8 +121,8 @@
           >
             עצור
           </button>
-          <button type="button" class="touch-button touch-right" data-direction="right">
-            ▶
+          <button type="button" class="touch-button touch-right" data-direction="left">
+            ◀
           </button>
           <button type="button" class="touch-button touch-down" data-direction="down">
             ▼

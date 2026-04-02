@@ -10,6 +10,10 @@ const levelTitle = document.getElementById("level-title");
 const levelDescription = document.getElementById("level-description");
 const progressCount = document.getElementById("progress-count");
 const progressFill = document.getElementById("progress-fill");
+const leaderboardStatus = document.getElementById("leaderboard-status");
+const playerNameInput = document.getElementById("player-name");
+const saveScoreButton = document.getElementById("save-score-button");
+const leaderboardList = document.getElementById("leaderboard-list");
 
 const overlay = document.getElementById("overlay");
 const overlayKicker = document.getElementById("overlay-kicker");
@@ -22,6 +26,7 @@ const touchDirectionButtons = document.querySelectorAll("[data-direction]");
 
 const gridSize = 20;
 const tileCount = canvas.width / gridSize;
+const leaderboardStorageKey = "snake-stages-leaderboard";
 
 const levels = [
   {
@@ -90,7 +95,114 @@ const state = {
   paused: false,
   loopId: null,
   touchStart: null,
+  pendingScore: null,
+  pendingLevel: null,
+  pendingLength: null,
 };
+
+function loadLeaderboard() {
+  try {
+    const raw = window.localStorage.getItem(leaderboardStorageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLeaderboard(entries) {
+  window.localStorage.setItem(leaderboardStorageKey, JSON.stringify(entries));
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function renderLeaderboard() {
+  const entries = loadLeaderboard();
+
+  if (entries.length === 0) {
+    leaderboardList.innerHTML =
+      '<li class="leaderboard-empty">עוד אין תוצאות שמורות. המשחק הראשון מחכה לכם.</li>';
+    return;
+  }
+
+  leaderboardList.innerHTML = entries
+    .map(
+      (entry, index) => `
+        <li class="leaderboard-item">
+          <span class="leaderboard-rank">${index + 1}</span>
+          <div class="leaderboard-meta">
+            <strong class="leaderboard-name">${escapeHtml(entry.name)}</strong>
+            <span>שלב ${entry.level} · אורך ${entry.length}</span>
+          </div>
+          <span class="leaderboard-score">${entry.score}</span>
+        </li>
+      `
+    )
+    .join("");
+}
+
+function updateLeaderboardStatus(message = "סיימו משחק כדי לשמור תוצאה") {
+  leaderboardStatus.textContent = message;
+}
+
+function setPendingScore() {
+  state.pendingScore = state.score;
+  state.pendingLevel = state.levelIndex + 1;
+  state.pendingLength = state.snake.length;
+  saveScoreButton.disabled = false;
+  updateLeaderboardStatus(`יש תוצאה מוכנה לשמירה: ${state.score} נקודות`);
+}
+
+function clearPendingScore() {
+  state.pendingScore = null;
+  state.pendingLevel = null;
+  state.pendingLength = null;
+  saveScoreButton.disabled = true;
+  if (!playerNameInput.value.trim()) {
+    updateLeaderboardStatus();
+  }
+}
+
+function saveCurrentScore() {
+  const name = playerNameInput.value.trim();
+  if (!name || state.pendingScore === null) {
+    updateLeaderboardStatus(
+      !name ? "כתבו שם כדי לשמור את התוצאה" : "סיימו משחק כדי לשמור תוצאה"
+    );
+    return;
+  }
+
+  const entries = loadLeaderboard();
+  entries.push({
+    name,
+    score: state.pendingScore,
+    level: state.pendingLevel,
+    length: state.pendingLength,
+  });
+
+  entries.sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    if (b.level !== a.level) {
+      return b.level - a.level;
+    }
+    return b.length - a.length;
+  });
+
+  saveLeaderboard(entries.slice(0, 10));
+  renderLeaderboard();
+  updateLeaderboardStatus(`התוצאה של ${name} נשמרה בטבלה`);
+  playerNameInput.value = "";
+  clearPendingScore();
+}
 
 function createStartingSnake() {
   return [
@@ -262,6 +374,7 @@ function resetGame() {
     "סיימו כל שלב על ידי איסוף כמות האוכל הדרושה בלי להתנגש."
   );
   syncPauseButton();
+  clearPendingScore();
 }
 
 function pauseGame() {
@@ -293,6 +406,7 @@ function advanceLevel() {
       `סיימתם עם ${state.score} נקודות ואורך ${state.snake.length}. לחצו על אתחל כדי לשחק שוב.`,
       true
     );
+    setPendingScore();
     syncPauseButton();
     return;
   }
@@ -328,6 +442,7 @@ function endGame(reason) {
         : "פגעתם בעצמכם. לפעמים הפנייה הכי מסוכנת היא דווקא המוכרת.";
 
   setOverlay("הפסד", "הנחש התרסק", `${message} לחצו על אתחל כדי לנסות שוב.`, true);
+  setPendingScore();
   syncPauseButton();
 }
 
@@ -528,8 +643,17 @@ if (touchPauseButton) {
   });
 }
 
+saveScoreButton.addEventListener("click", saveCurrentScore);
+playerNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    saveCurrentScore();
+  }
+});
+
 registerSwipeControls(canvas);
 registerSwipeControls(canvasWrap);
 registerSwipeControls(overlay);
 
+renderLeaderboard();
 resetGame();
