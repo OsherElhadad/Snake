@@ -3,6 +3,7 @@ const context = canvas.getContext("2d");
 const canvasWrap = document.getElementById("canvas-wrap");
 
 const levelLabel = document.getElementById("level-label");
+const livesLabel = document.getElementById("lives-label");
 const scoreLabel = document.getElementById("score-label");
 const lengthLabel = document.getElementById("length-label");
 const targetLabel = document.getElementById("target-label");
@@ -20,13 +21,14 @@ const overlayKicker = document.getElementById("overlay-kicker");
 const overlayTitle = document.getElementById("overlay-title");
 const overlayText = document.getElementById("overlay-text");
 const startButton = document.getElementById("start-button");
-const restartButton = document.getElementById("restart-button");
 const touchPauseButton = document.getElementById("touch-pause-button");
 const touchDirectionButtons = document.querySelectorAll("[data-direction]");
 
 const gridSize = 20;
 const tileCount = canvas.width / gridSize;
 const leaderboardStorageKey = "snake-stages-leaderboard";
+const startingLives = 3;
+const maxLives = 5;
 
 const levels = [
   {
@@ -35,6 +37,12 @@ const levels = [
     targetFood: 6,
     speed: 170,
     obstacles: [],
+    startSnake: [
+      { x: 5, y: 10 },
+      { x: 4, y: 10 },
+      { x: 3, y: 10 },
+    ],
+    startDirection: { x: 1, y: 0 },
   },
   {
     name: "שלב 2: המסדרון הבוער",
@@ -53,6 +61,12 @@ const levels = [
       { x: 13, y: 12 },
       { x: 14, y: 12 },
     ],
+    startSnake: [
+      { x: 4, y: 17 },
+      { x: 3, y: 17 },
+      { x: 2, y: 17 },
+    ],
+    startDirection: { x: 1, y: 0 },
   },
   {
     name: "שלב 3: הזירה הסופית",
@@ -80,17 +94,25 @@ const levels = [
       { x: 15, y: 14 },
       { x: 15, y: 13 },
     ],
+    startSnake: [
+      { x: 3, y: 2 },
+      { x: 2, y: 2 },
+      { x: 1, y: 2 },
+    ],
+    startDirection: { x: 1, y: 0 },
   },
 ];
 
 const state = {
   levelIndex: 0,
+  lives: startingLives,
   score: 0,
   stageScore: 0,
   snake: [],
   direction: { x: 1, y: 0 },
   nextDirection: { x: 1, y: 0 },
   food: { x: 0, y: 0 },
+  heart: null,
   running: false,
   paused: false,
   loopId: null,
@@ -98,6 +120,7 @@ const state = {
   pendingScore: null,
   pendingLevel: null,
   pendingLength: null,
+  startAction: "resume",
 };
 
 function loadLeaderboard() {
@@ -205,28 +228,29 @@ function saveCurrentScore() {
 }
 
 function createStartingSnake() {
-  return [
-    { x: 5, y: 10 },
-    { x: 4, y: 10 },
-    { x: 3, y: 10 },
-  ];
+  return levelConfig().startSnake.map((segment) => ({ ...segment }));
 }
 
 function levelConfig() {
   return levels[state.levelIndex];
 }
 
-function startLevel(levelIndex, keepScore = true) {
+function startLevel(levelIndex, options = {}) {
+  const { keepScore = true, keepStageProgress = false } = options;
   state.levelIndex = levelIndex;
-  state.stageScore = 0;
+  if (!keepStageProgress) {
+    state.stageScore = 0;
+  }
   if (!keepScore) {
     state.score = 0;
   }
   state.snake = createStartingSnake();
-  state.direction = { x: 1, y: 0 };
-  state.nextDirection = { x: 1, y: 0 };
+  state.direction = { ...levelConfig().startDirection };
+  state.nextDirection = { ...levelConfig().startDirection };
   state.food = spawnFood();
+  state.heart = null;
   state.paused = false;
+  maybeSpawnHeart(true);
   syncHud();
   draw();
 }
@@ -246,8 +270,10 @@ function spawnFood() {
     const onObstacle = obstacles.some(
       (obstacle) => obstacle.x === candidate.x && obstacle.y === candidate.y
     );
+    const onHeart =
+      state.heart && state.heart.x === candidate.x && state.heart.y === candidate.y;
 
-    if (!onSnake && !onObstacle) {
+    if (!onSnake && !onObstacle && !onHeart) {
       return candidate;
     }
   }
@@ -256,6 +282,7 @@ function spawnFood() {
 function syncHud() {
   const level = levelConfig();
   levelLabel.textContent = String(state.levelIndex + 1);
+  livesLabel.textContent = "❤".repeat(state.lives);
   scoreLabel.textContent = String(state.score);
   lengthLabel.textContent = String(state.snake.length);
   targetLabel.textContent = String(level.targetFood);
@@ -309,6 +336,22 @@ function drawFood() {
   context.fill();
 }
 
+function drawHeart() {
+  if (!state.heart) {
+    return;
+  }
+
+  context.fillStyle = "#fb7185";
+  context.font = "bold 20px sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(
+    "❤",
+    state.heart.x * gridSize + gridSize / 2,
+    state.heart.y * gridSize + gridSize / 2 + 1
+  );
+}
+
 function drawObstacles() {
   context.fillStyle = "#facc15";
   levelConfig().obstacles.forEach((obstacle) => {
@@ -328,6 +371,7 @@ function draw() {
   drawGrid();
   drawObstacles();
   drawFood();
+  drawHeart();
   drawSnake();
 }
 
@@ -355,24 +399,27 @@ function scheduleTick() {
 
 function startGame() {
   state.running = true;
+  state.startAction = "resume";
   setOverlay("", "", "", false);
   syncPauseButton();
   scheduleTick();
 }
 
-function resetGame() {
+function prepareNewRun() {
   state.running = false;
   state.paused = false;
+  state.lives = startingLives;
   if (state.loopId) {
     window.clearTimeout(state.loopId);
     state.loopId = null;
   }
-  startLevel(0, false);
+  startLevel(0, { keepScore: false, keepStageProgress: false });
   setOverlay(
     "מוכנים?",
     "לחצו על התחל משחק",
-    "סיימו כל שלב על ידי איסוף כמות האוכל הדרושה בלי להתנגש."
+    "יש לכם 3 חיים. סיימו כל שלב, אספו לבבות לעוד חיים, והימנעו מהתנגשויות."
   );
+  state.startAction = "resume";
   syncPauseButton();
   clearPendingScore();
 }
@@ -403,10 +450,11 @@ function advanceLevel() {
     setOverlay(
       "ניצחון",
       "השלמתם את כל השלבים",
-      `סיימתם עם ${state.score} נקודות ואורך ${state.snake.length}. לחצו על אתחל כדי לשחק שוב.`,
+      `סיימתם עם ${state.score} נקודות ו-${state.lives} חיים. לחצו על התחל משחק כדי להתחיל ריצה חדשה.`,
       true
     );
     setPendingScore();
+    state.startAction = "new-run";
     syncPauseButton();
     return;
   }
@@ -417,13 +465,14 @@ function advanceLevel() {
     state.loopId = null;
   }
 
-  startLevel(state.levelIndex + 1, true);
+  startLevel(state.levelIndex + 1, { keepScore: true, keepStageProgress: false });
   setOverlay(
     "שלב הושלם",
     levels[state.levelIndex].name,
     `${levels[state.levelIndex].description} לחצו על התחל כדי להמשיך לשלב הבא.`,
     true
   );
+  state.startAction = "resume";
   syncPauseButton();
 }
 
@@ -434,6 +483,8 @@ function endGame(reason) {
     state.loopId = null;
   }
 
+  state.lives -= 1;
+
   const message =
     reason === "wall"
       ? "פגעתם בקיר. במסלול הבא נסו לחשוב כמה צעדים קדימה."
@@ -441,8 +492,26 @@ function endGame(reason) {
         ? "נכנסתם במכשול. שימו לב במיוחד למעברים הצרים."
         : "פגעתם בעצמכם. לפעמים הפנייה הכי מסוכנת היא דווקא המוכרת.";
 
-  setOverlay("הפסד", "הנחש התרסק", `${message} לחצו על אתחל כדי לנסות שוב.`, true);
-  setPendingScore();
+  if (state.lives > 0) {
+    startLevel(state.levelIndex, { keepScore: true, keepStageProgress: true });
+    setOverlay(
+      "נפסלתם",
+      `נשארו לכם ${state.lives} חיים`,
+      `${message} לחצו על התחל משחק כדי להמשיך מאותו שלב.`,
+      true
+    );
+    state.startAction = "resume";
+  } else {
+    setOverlay(
+      "המשחק נגמר",
+      "נגמרו כל החיים",
+      `${message} צברתם ${state.score} נקודות. לחצו על התחל משחק כדי להתחיל מחדש עם 3 חיים.`,
+      true
+    );
+    setPendingScore();
+    state.startAction = "new-run";
+  }
+
   syncPauseButton();
 }
 
@@ -500,6 +569,7 @@ function tick() {
     state.score += 10;
     state.stageScore += 1;
     state.food = spawnFood();
+    maybeSpawnHeart();
 
     if (state.stageScore >= levelConfig().targetFood) {
       syncHud();
@@ -511,8 +581,52 @@ function tick() {
     state.snake.pop();
   }
 
+  if (state.heart && nextHead.x === state.heart.x && nextHead.y === state.heart.y) {
+    state.lives = Math.min(maxLives, state.lives + 1);
+    state.heart = null;
+  }
+
   syncHud();
   draw();
+}
+
+function cellIsBlocked(candidate) {
+  const onSnake = state.snake.some(
+    (segment) => segment.x === candidate.x && segment.y === candidate.y
+  );
+  const onObstacle = levelConfig().obstacles.some(
+    (obstacle) => obstacle.x === candidate.x && obstacle.y === candidate.y
+  );
+  const onFood = state.food.x === candidate.x && state.food.y === candidate.y;
+  const onHeart =
+    state.heart && state.heart.x === candidate.x && state.heart.y === candidate.y;
+
+  return onSnake || onObstacle || onFood || onHeart;
+}
+
+function spawnFreeCell() {
+  while (true) {
+    const candidate = {
+      x: Math.floor(Math.random() * tileCount),
+      y: Math.floor(Math.random() * tileCount),
+    };
+
+    if (!cellIsBlocked(candidate)) {
+      return candidate;
+    }
+  }
+}
+
+function maybeSpawnHeart(force = false) {
+  if (state.lives >= maxLives || state.heart) {
+    return;
+  }
+
+  if (!force && Math.random() > 0.4) {
+    return;
+  }
+
+  state.heart = spawnFreeCell();
 }
 
 function handleDirectionChange(key) {
@@ -600,7 +714,10 @@ document.addEventListener("keydown", (event) => {
 
   if (event.key === "Enter") {
     event.preventDefault();
-    resetGame();
+    if (state.startAction === "new-run") {
+      prepareNewRun();
+    }
+    startGame();
     return;
   }
 
@@ -608,13 +725,15 @@ document.addEventListener("keydown", (event) => {
 });
 
 startButton.addEventListener("click", () => {
-  if (!state.running) {
-    startGame();
+  if (state.running) {
+    return;
   }
-});
 
-restartButton.addEventListener("click", () => {
-  resetGame();
+  if (state.startAction === "new-run") {
+    prepareNewRun();
+  }
+
+  startGame();
 });
 
 touchDirectionButtons.forEach((button) => {
@@ -635,6 +754,9 @@ touchDirectionButtons.forEach((button) => {
 if (touchPauseButton) {
   touchPauseButton.addEventListener("click", () => {
     if (!state.running) {
+      if (state.startAction === "new-run") {
+        prepareNewRun();
+      }
       startGame();
       return;
     }
@@ -647,6 +769,7 @@ saveScoreButton.addEventListener("click", saveCurrentScore);
 playerNameInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
+    event.stopPropagation();
     saveCurrentScore();
   }
 });
@@ -656,4 +779,4 @@ registerSwipeControls(canvasWrap);
 registerSwipeControls(overlay);
 
 renderLeaderboard();
-resetGame();
+prepareNewRun();
