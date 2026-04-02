@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Snake Stages</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero-panel">
+        <p class="eyebrow">Snake עם התקדמות אמיתית</p>
+        <h1>עוברים שלב, מתגברים על מכשולים, ומנצחים את כל המסלול</h1>
+        <p class="hero-copy">
+          אוכלים, גדלים, נזהרים ממלכודות, ומשלימים שלבים שהולכים ונעשים מהירים
+          ומורכבים יותר.
+        </p>
+
+        <div class="status-grid">
+          <article class="status-card">
+            <span>שלב</span>
+            <strong id="level-label">1</strong>
+          </article>
+          <article class="status-card">
+            <span>ניקוד</span>
+            <strong id="score-label">0</strong>
+          </article>
+          <article class="status-card">
+            <span>אורך</span>
+            <strong id="length-label">3</strong>
+          </article>
+          <article class="status-card">
+            <span>יעד לשלב</span>
+            <strong id="target-label">6</strong>
+          </article>
+        </div>
+
+        <div class="controls-card">
+          <h2>שליטה</h2>
+          <p>השתמשו בחצים או ב-`WASD` כדי לזוז.</p>
+          <p>`רווח` עוצר וממשיך, `Enter` מתחיל מחדש.</p>
+        </div>
+
+        <div class="level-card">
+          <h2 id="level-title">שלב 1: פתיחה חלקה</h2>
+          <p id="level-description">
+            מתרגלים שליטה בסיסית. אין מכשולים, רק להגיע ליעד.
+          </p>
+        </div>
+      </section>
+
+      <section class="game-panel">
+        <div class="canvas-wrap">
+          <canvas
+            id="game-board"
+            width="600"
+            height="600"
+            aria-label="לוח המשחק Snake"
+          ></canvas>
+          <div class="overlay" id="overlay">
+            <div class="overlay-card">
+              <p class="overlay-kicker" id="overlay-kicker">מוכנים?</p>
+              <h2 id="overlay-title">לחצו על התחל משחק</h2>
+              <p id="overlay-text">
+                סיימו כל שלב על ידי איסוף כמות האוכל הדרושה בלי לפגוע בקירות,
+                בעצמכם או במכשולים.
+              </p>
+              <div class="overlay-actions">
+                <button id="start-button" type="button">התחל משחק</button>
+                <button id="restart-button" type="button" class="secondary">
+                  אתחל
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-panel">
+          <div class="progress-head">
+            <span>התקדמות בשלב</span>
+            <strong id="progress-count">0 / 6</strong>
+          </div>
+          <div class="progress-bar">
+            <div id="progress-fill"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
