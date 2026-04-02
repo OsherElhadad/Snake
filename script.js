@@ -1,5 +1,6 @@
 const canvas = document.getElementById("game-board");
 const context = canvas.getContext("2d");
+const canvasWrap = document.getElementById("canvas-wrap");
 
 const levelLabel = document.getElementById("level-label");
 const scoreLabel = document.getElementById("score-label");
@@ -440,8 +441,8 @@ function setDirectionFromTouch(direction) {
 }
 
 function handleTouchStart(event) {
-  const touch = event.changedTouches[0];
-  state.touchStart = { x: touch.clientX, y: touch.clientY };
+  const point = event.touches?.[0] || event.changedTouches?.[0] || event;
+  state.touchStart = { x: point.clientX, y: point.clientY };
 }
 
 function handleTouchEnd(event) {
@@ -449,9 +450,9 @@ function handleTouchEnd(event) {
     return;
   }
 
-  const touch = event.changedTouches[0];
-  const deltaX = touch.clientX - state.touchStart.x;
-  const deltaY = touch.clientY - state.touchStart.y;
+  const point = event.changedTouches?.[0] || event;
+  const deltaX = point.clientX - state.touchStart.x;
+  const deltaY = point.clientY - state.touchStart.y;
   const threshold = 24;
 
   if (Math.abs(deltaX) < threshold && Math.abs(deltaY) < threshold) {
@@ -466,6 +467,13 @@ function handleTouchEnd(event) {
   }
 
   state.touchStart = null;
+}
+
+function registerSwipeControls(element) {
+  element.addEventListener("touchstart", handleTouchStart, { passive: true });
+  element.addEventListener("touchend", handleTouchEnd, { passive: true });
+  element.addEventListener("pointerdown", handleTouchStart);
+  element.addEventListener("pointerup", handleTouchEnd);
 }
 
 document.addEventListener("keydown", (event) => {
@@ -495,9 +503,18 @@ restartButton.addEventListener("click", () => {
 });
 
 touchDirectionButtons.forEach((button) => {
-  button.addEventListener("click", () => {
+  const handler = () => {
     setDirectionFromTouch(button.dataset.direction);
-  });
+  };
+
+  if (window.PointerEvent) {
+    button.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      handler();
+    });
+  } else {
+    button.addEventListener("click", handler);
+  }
 });
 
 if (touchPauseButton) {
@@ -511,7 +528,8 @@ if (touchPauseButton) {
   });
 }
 
-canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
-canvas.addEventListener("touchend", handleTouchEnd, { passive: true });
+registerSwipeControls(canvas);
+registerSwipeControls(canvasWrap);
+registerSwipeControls(overlay);
 
 resetGame();
